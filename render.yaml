@@ -1,0 +1,23 @@
+# Render Blueprint: New → Blueprint → choose this repository.
+services:
+  - type: web
+    name: cryptopay
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL        # Neon connection string (direct, not pooled)
+        sync: false
+      - key: REOWN_PROJECT_ID    # from dashboard.reown.com
+        sync: false
+      - key: CHAINS
+        value: "84532,11155111"
+      - key: ALLOW_REGISTRATION
+        value: "true"
+      - key: APP_NAME
+        value: CryptoPay
+      - key: LOG_LEVEL
+        value: info
