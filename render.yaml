@@ -18,6 +18,6 @@ services:
       - key: ALLOW_REGISTRATION
         value: "true"
       - key: APP_NAME
-        value: CryptoPay
+        value: SpyderPay
       - key: LOG_LEVEL
         value: info
