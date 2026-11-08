@@ -4,7 +4,7 @@ import { api, type Invoice } from '../api';
 import { useAppConfig } from '../config';
 import { formatDate, shortAddress } from '../format';
 import { errorMessage } from '../text';
-import { Button, CopyButton, ExternalLink, Field, Notice, StatusLabel } from '../ui';
+import { Button, CopyButton, ExternalLink, Field, Notice, StatusLabel, Title } from '../ui';
 import { useMerchant } from './MerchantLayout';
 
 export function DashboardPage() {
@@ -17,12 +17,15 @@ export function DashboardPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>{merchant.name}</h1>
-        <p className="muted">
-          Выплаты на <span className="hex">{shortAddress(merchant.payoutAddress)}</span>
-        </p>
-      </div>
+      <Title
+        sub={
+          <>
+            Выплаты на <span className="hex">{shortAddress(merchant.payoutAddress)}</span>
+          </>
+        }
+      >
+        {merchant.name}
+      </Title>
 
       <NewInvoice />
 

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { errorMessage } from '../text';
-import { Button, CopyButton, Field, Notice } from '../ui';
+import { Button, CopyButton, Field, Notice, Title } from '../ui';
 import { useMerchant } from './MerchantLayout';
 
 export function SettingsPage() {
@@ -31,9 +31,7 @@ export function SettingsPage() {
 
   return (
     <>
-      <div className="page-head">
-        <h1>Настройки</h1>
-      </div>
+      <Title>Настройки</Title>
 
       <section className="section narrow">
         <form className="form" onSubmit={submit}>

@@ -8,7 +8,7 @@ import { injected } from 'wagmi/connectors';
 import type { AppConfig, ChainInfo } from './api';
 import { shortAddress } from './format';
 import { walletErrorMessage } from './text';
-import { Button, ExternalLink, Notice } from './ui';
+import { ExternalLink, MenuItem, Notice } from './ui';
 
 /**
  * Wallet integration.
@@ -64,10 +64,12 @@ export function setupWallet(config: AppConfig): Config {
         url: window.location.origin,
         icons: [`${window.location.origin}/favicon.svg`],
       },
-      themeMode: 'light',
+      themeMode: 'dark',
       themeVariables: {
-        '--w3m-accent': '#15223B',
-        '--w3m-font-family': '"Onest Variable", system-ui, sans-serif',
+        '--w3m-accent': '#C9A25A',
+        '--w3m-font-family': '"Cormorant Garamond", Georgia, serif',
+        '--w3m-color-mix': '#1F150A',
+        '--w3m-color-mix-strength': 35,
         '--w3m-border-radius-master': '2px',
       },
       featuredWalletIds: FEATURED_WALLETS,
@@ -85,21 +87,31 @@ export function setupWallet(config: AppConfig): Config {
   });
 }
 
-/** "Connect wallet" button — opens the AppKit modal or a list of browser wallets. */
-export function ConnectWallet({ label = 'Подключить кошелёк', variant }: { label?: string; variant?: 'primary' | 'secondary' }) {
+type ConnectStyle = 'menu' | 'link';
+
+/** "Connect wallet" — a menu entry (or a small link) that opens the AppKit modal or a list of browser wallets. */
+export function ConnectWallet({ label = 'Подключить кошелёк', variant = 'menu' }: { label?: string; variant?: ConnectStyle }) {
   return mode === 'appkit' ? <AppKitConnect label={label} variant={variant} /> : <BrowserConnect label={label} variant={variant} />;
 }
 
-function AppKitConnect({ label, variant }: { label: string; variant?: 'primary' | 'secondary' }) {
-  const { open } = useAppKit();
-  return (
-    <Button wide variant={variant} onClick={() => void open({ view: 'Connect' })}>
+function Trigger({ variant, label, onClick, busy }: { variant: ConnectStyle; label: string; onClick: () => void; busy?: boolean }) {
+  return variant === 'link' ? (
+    <button type="button" className="link-button" onClick={onClick} disabled={busy}>
       {label}
-    </Button>
+    </button>
+  ) : (
+    <MenuItem onClick={onClick} busy={busy}>
+      {label}
+    </MenuItem>
   );
 }
 
-function BrowserConnect({ label, variant }: { label: string; variant?: 'primary' | 'secondary' }) {
+function AppKitConnect({ label, variant }: { label: string; variant: ConnectStyle }) {
+  const { open } = useAppKit();
+  return <Trigger variant={variant} label={label} onClick={() => void open({ view: 'Connect' })} />;
+}
+
+function BrowserConnect({ label, variant }: { label: string; variant: ConnectStyle }) {
   const [open, setOpen] = useState(false);
   const connectors = useConnectors();
   const connect = useConnect();
@@ -111,15 +123,18 @@ function BrowserConnect({ label, variant }: { label: string; variant?: 'primary'
   if (!open) {
     return (
       <>
-        <Button wide variant={variant} onClick={() => (options.length === 1 ? connect.mutate({ connector: options[0]! }) : setOpen(true))} busy={connect.isPending}>
-          {label}
-        </Button>
+        <Trigger
+          variant={variant}
+          label={label}
+          busy={connect.isPending}
+          onClick={() => (options.length === 1 ? connect.mutate({ connector: options[0]! }) : setOpen(true))}
+        />
         {connect.error && <Notice tone="error">{walletErrorMessage(connect.error)}</Notice>}
       </>
     );
   }
   return (
-    <div className="wallet-picker">
+    <>
       {options.length === 0 ? (
         <Notice>
           В браузере не найден кошелёк. Установите{' '}
@@ -129,37 +144,31 @@ function BrowserConnect({ label, variant }: { label: string; variant?: 'primary'
         </Notice>
       ) : (
         options.map((connector) => (
-          <Button
+          <MenuItem
             key={connector.uid}
-            variant="secondary"
-            wide
             busy={connect.isPending && connect.variables?.connector === connector}
             onClick={() => connect.mutate({ connector }, { onSuccess: () => setOpen(false) })}
           >
-            {connector.icon && <img src={connector.icon} alt="" width={20} height={20} />}
+            {connector.icon && <img className="wallet-icon" src={connector.icon} alt="" width={22} height={22} />}
             {connector.id === 'injected' ? 'Кошелёк браузера' : connector.name}
-          </Button>
+          </MenuItem>
         ))
       )}
       {connect.error && <Notice tone="error">{walletErrorMessage(connect.error)}</Notice>}
-      <button type="button" className="link-button" onClick={() => setOpen(false)}>
-        Отмена
-      </button>
-    </div>
+      <MenuItem onClick={() => setOpen(false)}>Назад</MenuItem>
+    </>
   );
 }
 
-/** Shows which wallet is connected, with a way out. */
+/** Which wallet is connected — a quiet line under the menu. */
 export function WalletLine() {
   const { address } = useConnection();
-  const disconnect = useDisconnect();
   if (!address) return null;
-  return (
-    <p className="wallet-line">
-      <span>Кошелёк {shortAddress(address)}</span>
-      <button type="button" className="link-button" onClick={() => disconnect.mutate()}>
-        Отключить
-      </button>
-    </p>
-  );
+  return <p className="wallet-line">Кошелёк {shortAddress(address)}</p>;
+}
+
+/** Menu entry that disconnects the current wallet. */
+export function DisconnectItem() {
+  const disconnect = useDisconnect();
+  return <MenuItem onClick={() => disconnect.mutate()}>Сменить кошелёк</MenuItem>;
 }

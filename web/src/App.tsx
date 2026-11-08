@@ -1,4 +1,5 @@
-import { createBrowserRouter, Link } from 'react-router';
+import { createBrowserRouter, useNavigate } from 'react-router';
+import { Menu, MenuItem, Title } from './ui';
 import { DashboardPage } from './pages/DashboardPage';
 import { HomePage } from './pages/HomePage';
 import { MerchantLayout } from './pages/MerchantLayout';
@@ -6,12 +7,13 @@ import { PayPage } from './pages/PayPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 function NotFound() {
+  const navigate = useNavigate();
   return (
-    <main className="home">
-      <h1 className="home-title">Страница не найдена</h1>
-      <p className="home-lead">
-        <Link to="/">На главную</Link>
-      </p>
+    <main className="screen panel-screen">
+      <Title sub="Такой страницы нет. Проверьте ссылку.">Страница не найдена</Title>
+      <Menu label="Навигация">
+        <MenuItem onClick={() => navigate('/')}>На главную</MenuItem>
+      </Menu>
     </main>
   );
 }

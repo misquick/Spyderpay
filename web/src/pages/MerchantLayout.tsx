@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { Navigate, NavLink, Outlet, useNavigate, useOutletContext } from 'react-router';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router';
 import { api, ApiError, type Merchant } from '../api';
 import { useAppConfig } from '../config';
 import { useSession } from '../session';
 import { errorMessage } from '../text';
 import { Notice } from '../ui';
+import { Logo } from '../decor';
 
 export interface MerchantContext {
   apiKey: string;
@@ -19,6 +20,7 @@ export function MerchantLayout() {
   const { appName } = useAppConfig();
   const { apiKey, signOut } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
   const me = useQuery({
     queryKey: ['me', apiKey],
     queryFn: () => api.me(apiKey!),
@@ -38,8 +40,8 @@ export function MerchantLayout() {
   return (
     <div className="app">
       <header className="topbar">
-        <NavLink to="/dashboard" className="brand">
-          {appName}
+        <NavLink to="/dashboard" className="brand" aria-label={appName}>
+          <Logo size="sm" />
         </NavLink>
         <nav>
           <NavLink to="/dashboard">Счета</NavLink>
@@ -57,9 +59,13 @@ export function MerchantLayout() {
         </nav>
       </header>
       <main className="workspace">
-        {me.isPending && <p className="muted">Загрузка…</p>}
+        {me.isPending && <p className="loading glow">Загрузка…</p>}
         {me.isError && !(me.error instanceof ApiError && me.error.status === 401) && <Notice tone="error">{errorMessage(me.error)}</Notice>}
-        {me.data && <Outlet context={{ apiKey, merchant: me.data } satisfies MerchantContext} />}
+        {me.data && (
+          <div className="screen" key={location.pathname}>
+            <Outlet context={{ apiKey, merchant: me.data } satisfies MerchantContext} />
+          </div>
+        )}
       </main>
     </div>
   );
