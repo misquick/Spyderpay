@@ -16,7 +16,7 @@ const schema = z.object({
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   /** Public address of the site, used to build payment links. */
   PUBLIC_URL: z.url().default('http://localhost:5173').transform((u) => u.replace(/\/+$/, '')),
-  APP_NAME: z.string().min(1).default('CryptoPay'),
+  APP_NAME: z.string().min(1).default('SpyderPay'),
   /** Public Reown (WalletConnect) project id, handed to the browser via /api/config. */
   REOWN_PROJECT_ID: z.string().trim().optional().transform((v) => v || null),
   /** Folder with the built web app; when set, this server serves the site too (Render). */
