@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { MerchantLayout } from './pages/MerchantLayout';
 import { PayPage } from './pages/PayPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TestPage } from './pages/TestPage';
 
 function NotFound() {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/settings', element: <SettingsPage /> },
+      { path: '/test', element: <TestPage /> },
     ],
   },
   { path: '*', element: <NotFound /> },

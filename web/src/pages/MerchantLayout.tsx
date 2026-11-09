@@ -45,6 +45,7 @@ export function MerchantLayout() {
         </NavLink>
         <nav>
           <NavLink to="/dashboard">Счета</NavLink>
+          <NavLink to="/test">Проверка</NavLink>
           <NavLink to="/settings">Настройки</NavLink>
           <button
             type="button"

@@ -6,6 +6,7 @@ import {
   useBalance,
   useConnection,
   useReadContract,
+  useSendTransaction,
   useSwitchChain,
   useWaitForTransactionReceipt,
   useWriteContract,
@@ -13,7 +14,7 @@ import {
 import { api, ApiError, isFinal, type Invoice } from '../api';
 import { useChain } from '../config';
 import { Logo } from '../decor';
-import { formatCountdown, formatDate, sleep, splitAmount, useNow } from '../format';
+import { formatCountdown, formatDate, precisionOf, sleep, splitAmount, useNow } from '../format';
 import { errorMessage, walletErrorMessage } from '../text';
 import { CopyButton, ExternalLink, Menu, MenuItem, MenuLink, Notice, Title } from '../ui';
 import { ConnectWallet, DisconnectItem, WalletLine } from '../wallet';
@@ -84,7 +85,7 @@ function Screen({ children, corner }: { children: ReactNode; corner?: ReactNode 
 
 /** The exact amount, with the invoice's unique tail set apart. */
 function Amount({ invoice }: { invoice: Invoice }) {
-  const { main, tail } = splitAmount(invoice.payAmount);
+  const { main, tail } = splitAmount(invoice.payAmount, precisionOf(invoice.amount));
   return (
     <div className="amount-block">
       <p className="amount glow" aria-label={`${invoice.payAmount} ${invoice.token.symbol}`}>
@@ -115,19 +116,25 @@ function PayAction({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (invoice
 
   const { address, chainId, isConnected } = useConnection();
   const switchChain = useSwitchChain();
+  // ETH is sent as a plain transaction; a token (USDC) through its contract's transfer().
+  const native = invoice.token.address === null;
   const transfer = useWriteContract();
-  const hash = transfer.data as Hash | undefined;
+  const send = useSendTransaction();
+  const sending = native ? send.isPending : transfer.isPending;
+  const sendError = native ? send.error : transfer.error;
+  const hash = (native ? send.data : transfer.data) as Hash | undefined;
   const receipt = useWaitForTransactionReceipt({ hash, chainId: targetChain });
 
   const balance = useReadContract({
-    address: invoice.token.address,
+    address: invoice.token.address ?? undefined,
     abi: erc20Abi,
     functionName: 'balanceOf',
     args: address ? [address] : undefined,
     chainId: targetChain,
-    query: { enabled: Boolean(address), refetchInterval: 10_000 },
+    query: { enabled: Boolean(address) && !native, refetchInterval: 10_000 },
   });
-  const gas = useBalance({ address, chainId: targetChain, query: { enabled: Boolean(address) } });
+  const gas = useBalance({ address, chainId: targetChain, query: { enabled: Boolean(address), refetchInterval: 10_000 } });
+  const available = native ? gas.data?.value : balance.data;
   const [reportError, setReportError] = useState<string | null>(null);
 
   // Once the transaction is mined, tell the server right away (the background scanner is the fallback).
@@ -199,8 +206,8 @@ function PayAction({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (invoice
   }
 
   const symbol = invoice.token.symbol;
-  const notEnough = balance.data !== undefined && balance.data < units;
-  const noGas = gas.data !== undefined && gas.data.value === 0n;
+  const notEnough = available !== undefined && available < units;
+  const noGas = !native && gas.data !== undefined && gas.data.value === 0n;
   let primary: ReactNode;
 
   if (chainId !== targetChain) {
@@ -214,18 +221,20 @@ function PayAction({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (invoice
   } else {
     primary = (
       <MenuItem
-        busy={transfer.isPending}
+        busy={sending}
         onClick={() =>
-          transfer.mutate({
-            address: invoice.token.address,
-            abi: erc20Abi,
-            functionName: 'transfer',
-            args: [invoice.payTo, units],
-            chainId: targetChain,
-          })
+          native || !invoice.token.address
+            ? send.mutate({ to: invoice.payTo, value: units, chainId: targetChain })
+            : transfer.mutate({
+                address: invoice.token.address,
+                abi: erc20Abi,
+                functionName: 'transfer',
+                args: [invoice.payTo, units],
+                chainId: targetChain,
+              })
         }
       >
-        {transfer.isPending ? 'Подтвердите в кошельке' : `Оплатить ${invoice.payAmount} ${symbol}`}
+        {sending ? 'Подтвердите в кошельке' : `Оплатить ${invoice.payAmount} ${symbol}`}
       </MenuItem>
     );
   }
@@ -238,13 +247,13 @@ function PayAction({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (invoice
         <DisconnectItem />
       </Menu>
       <WalletLine />
-      {notEnough && balance.data !== undefined && (
+      {notEnough && available !== undefined && (
         <p className="note">
-          На кошельке {formatUnits(balance.data, invoice.token.decimals)} {symbol}.
+          На кошельке {formatUnits(available, invoice.token.decimals)} {symbol}.
           {invoice.network.faucetUrl && (
             <>
               {' '}
-              Тестовые {symbol} можно получить в <ExternalLink href={invoice.network.faucetUrl}>кране Circle</ExternalLink>.
+              Тестовые {symbol} можно получить <ExternalLink href={invoice.network.faucetUrl}>здесь</ExternalLink>.
             </>
           )}
         </p>
@@ -255,7 +264,8 @@ function PayAction({ invoice, onUpdate }: { invoice: Invoice; onUpdate: (invoice
         </p>
       )}
       {switchChain.error && <Notice tone="error">{walletErrorMessage(switchChain.error)}</Notice>}
-      {transfer.error && <Notice tone="error">{walletErrorMessage(transfer.error)}</Notice>}
+      {sendError && <Notice tone="error">{walletErrorMessage(sendError)}</Notice>}
+      {native && !notEnough && <p className="note">Комиссию сети кошелёк покажет перед подтверждением.</p>}
       {manual && <ManualPayment invoice={invoice} />}
     </div>
   );
@@ -278,11 +288,13 @@ function ManualPayment({ invoice }: { invoice: Invoice }) {
           </dd>
           <CopyButton value={invoice.payAmount} />
         </div>
-        <div>
-          <dt>Контракт токена {invoice.token.symbol}</dt>
-          <dd className="hex">{invoice.token.address}</dd>
-          <CopyButton value={invoice.token.address} />
-        </div>
+        {invoice.token.address && (
+          <div>
+            <dt>Контракт токена {invoice.token.symbol}</dt>
+            <dd className="hex">{invoice.token.address}</dd>
+            <CopyButton value={invoice.token.address} />
+          </div>
+        )}
       </dl>
       <p className="note">
         Отправьте ровно эту сумму в сети {invoice.network.name}: по последним цифрам мы узнаём ваш платёж. Перевод на другую

@@ -4,7 +4,8 @@ export type Address = `0x${string}`;
 export type InvoiceStatus = 'pending' | 'confirming' | 'paid' | 'expired' | 'cancelled';
 
 export interface Token {
-  address: Address;
+  /** null = the chain's own coin (ETH). */
+  address: Address | null;
   symbol: string;
   decimals: number;
 }
@@ -40,7 +41,7 @@ export interface ChainInfo {
   explorerUrl: string | null;
   faucetUrl: string | null;
   confirmations: number;
-  token: Token;
+  token: Token & { precision: number };
 }
 
 export interface AppConfig {
@@ -67,6 +68,7 @@ export interface CreateInvoiceInput {
   orderId?: string;
   redirectUrl?: string;
   expiresInMinutes?: number;
+  payTo?: string;
 }
 
 export class ApiError extends Error {
@@ -128,3 +130,16 @@ export const api = {
 };
 
 export const isFinal = (status: InvoiceStatus) => status === 'paid' || status === 'expired' || status === 'cancelled';
+
+/** Reports a mined transaction to the server, retrying while the server's node has not seen it yet. */
+export async function reportPayment(invoiceId: string, txHash: string, attempts = 8): Promise<Invoice> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await api.submitPayment(invoiceId, txHash);
+    } catch (error) {
+      const retry = error instanceof ApiError && (error.code === 'TX_NOT_FOUND' || error.status === 0);
+      if (!retry || attempt >= attempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+  }
+}

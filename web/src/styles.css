@@ -1405,3 +1405,111 @@ select option {
     opacity: 0.35;
   }
 }
+
+/* ───────────── Test payment page ───────────── */
+
+.field-label {
+  font-family: var(--caps);
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+}
+
+.payer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--gold-line);
+  background: var(--panel);
+}
+
+.payer-empty {
+  color: var(--quiet);
+  font-style: italic;
+}
+
+.payer-balance {
+  font-family: var(--display);
+  color: var(--gold);
+}
+
+.timeline {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  position: relative;
+  display: grid;
+  padding: 8px 0 8px 34px;
+  color: var(--quiet);
+  transition: color 0.4s;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 17px;
+  width: 9px;
+  height: 9px;
+  transform: rotate(45deg);
+  border: 1px solid currentColor;
+  transition: background-color 0.4s, box-shadow 0.4s;
+}
+
+.timeline li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 30px;
+  bottom: -10px;
+  width: 1px;
+  background: var(--gold-faint);
+}
+
+.timeline-label {
+  font-family: var(--caps);
+  font-size: 21px;
+}
+
+.timeline-extra {
+  font-size: 16px;
+  font-style: italic;
+  color: var(--muted);
+}
+
+.timeline-now {
+  color: #fff;
+}
+
+.timeline-now::before {
+  animation: breathe 1.2s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(255, 220, 160, 0.8);
+}
+
+.timeline-done {
+  color: #fff;
+}
+
+.timeline-done .timeline-label {
+  text-shadow: var(--glow-soft);
+}
+
+.timeline-done::before {
+  background: var(--gold-strong);
+  border-color: var(--gold-strong);
+  box-shadow: 0 0 8px #ffd27a;
+}
+
+.test-result {
+  margin-top: 22px;
+  font-family: var(--display);
+  font-size: 30px;
+  text-align: center;
+}

@@ -6,11 +6,14 @@ export const shortAddress = (address: string) => `${address.slice(0, 6)}…${add
  * Splits "25.500437" into the amount the merchant asked for ("25.50")
  * and the unique tail ("0437") that identifies this particular invoice.
  */
-export function splitAmount(payAmount: string): { main: string; tail: string } {
+export function splitAmount(payAmount: string, precision = 2): { main: string; tail: string } {
   const [integer, fraction = ''] = payAmount.split('.');
-  const digits = fraction.padEnd(6, '0');
-  return { main: `${integer}.${digits.slice(0, 2)}`, tail: digits.slice(2, 6) };
+  const digits = fraction.padEnd(precision + 4, '0');
+  return { main: `${integer}.${digits.slice(0, precision)}`, tail: digits.slice(precision, precision + 4) };
 }
+
+/** How many decimals the merchant used: "25.50" → 2, "0.001500" → 6. */
+export const precisionOf = (amount: string) => (amount.split('.')[1] ?? '').length || 2;
 
 const dateFormat = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 export const formatDate = (iso: string) => dateFormat.format(new Date(iso));

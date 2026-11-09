@@ -48,7 +48,9 @@ function NewInvoice() {
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [chainId, setChainId] = useState(config.defaultChainId);
-  const symbol = config.chains.find((c) => c.chainId === chainId)?.token.symbol ?? 'USDC';
+  const token = config.chains.find((c) => c.chainId === chainId)?.token;
+  const symbol = token?.symbol ?? 'USDC';
+  const precision = token?.precision ?? 2;
 
   const create = useMutation({
     mutationFn: () => api.createInvoice(apiKey, { amount: amount.replace(',', '.'), description, chainId }),
@@ -75,9 +77,10 @@ function NewInvoice() {
             inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder="25.00"
+            placeholder={precision > 2 ? '0.001' : '25.00'}
             required
-            pattern="^\d{1,9}([.,]\d{1,2})?$"
+            pattern={`^\\d{1,9}([.,]\\d{1,${precision}})?$`}
+            title={`До ${precision} знаков после точки`}
           />
         </Field>
         <Field label="За что" htmlFor="description">
