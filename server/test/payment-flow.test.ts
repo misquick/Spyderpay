@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { ChainRegistry } from '../src/config/chains.js';
 import { AppError } from '../src/domain/errors.js';
+import { NATIVE } from '../src/domain/invoice.js';
 import { verifyWebhook } from '../src/domain/webhook.js';
 import { silentLogger } from '../src/ports/system.js';
 import { ConfirmationTracker } from '../src/services/ConfirmationTracker.js';
@@ -209,7 +211,29 @@ describe('payment flow', () => {
     const dto = new Presenter(testChains, 'https://pay.example').invoice(invoice);
     expect(dto.paymentUrl).toBe(`https://pay.example/pay/${invoice.id}`);
     expect(dto.token.address).toBe('0x036CbD53842c5426634e7929541eC2318f3dCF7e');
-    expect(dto.token.address.toLowerCase()).toBe(TOKEN);
+    expect(dto.token.address?.toLowerCase()).toBe(TOKEN);
     expect(dto.payAmount).toMatch(/^1\.00\d{4}$/);
+  });
+
+  it('accepts plain ETH payments when the chain is configured for its native coin', async () => {
+    const nativeChains = new ChainRegistry([{ ...testChain, token: { address: NATIVE, symbol: 'ETH', decimals: 18, precision: 6 } }]);
+    const service = new InvoiceService(t.repos.invoices, t.repos.merchants, nativeChains, t.clock, 30);
+    const invoice = await service.create(merchant, { amount: '0.0015' });
+    expect(invoice.amount).toBe('0.001500');
+    expect(invoice.token.address).toBe(NATIVE);
+    // tail sits after the 6th decimal: 0.0015 ETH + less than 0.000001 ETH
+    expect(invoice.amountUnits > 1_500_000_000_000_000n && invoice.amountUnits < 1_501_000_000_000_000n).toBe(true);
+    await expect(service.create(merchant, { amount: '0.0000001' })).rejects.toMatchObject({ code: 'INVALID_AMOUNT' });
+
+    const transfer = t.chain.pay(MERCHANT_WALLET, invoice.amountUnits, { token: NATIVE });
+    expect((await t.payments.submitTransaction(invoice.id, transfer.txHash)).status).toBe('confirming');
+  });
+
+  it('can send an invoice to another address than the merchant default', async () => {
+    const other = '0x3333333333333333333333333333333333333333';
+    const invoice = await t.invoices.create(merchant, { amount: '2', payTo: other });
+    expect(invoice.payTo).toBe(other);
+    const transfer = t.chain.pay(other, invoice.amountUnits);
+    expect((await t.payments.submitTransaction(invoice.id, transfer.txHash)).status).toBe('confirming');
   });
 });

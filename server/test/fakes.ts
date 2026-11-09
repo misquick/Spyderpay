@@ -31,7 +31,7 @@ export const testChain: ChainConfig = {
   id: baseSepolia.id,
   name: 'Base Sepolia',
   testnet: true,
-  token: { address: TOKEN, symbol: 'USDC', decimals: 6 },
+  token: { address: TOKEN, symbol: 'USDC', decimals: 6, precision: 2 },
   confirmations: 3,
   rpcUrl: undefined,
   publicRpcUrl: 'https://sepolia.base.org',

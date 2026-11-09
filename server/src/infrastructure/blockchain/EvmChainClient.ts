@@ -7,6 +7,7 @@ import {
   type PublicClient,
 } from 'viem';
 import type { ChainConfig, ChainRegistry } from '../../config/chains.js';
+import { NATIVE } from '../../domain/invoice.js';
 import type { TokenTransfer } from '../../domain/transfer.js';
 import type { BlockRef, ChainClient, ChainClients, TransferQuery, TxInspection } from '../../ports/blockchain.js';
 
@@ -51,9 +52,30 @@ export class EvmChainClient implements ChainClient {
 
     const { time } = await this.getBlock(receipt.blockNumber);
     const logs = parseEventLogs({ abi: erc20Abi, eventName: 'Transfer', logs: receipt.logs });
+    const transfers: TokenTransfer[] = [];
+
+    // A plain ETH transfer: the value travels on the transaction itself, not in a log.
+    if (this.chain.token.address === NATIVE) {
+      const tx = await this.client.getTransaction({ hash: txHash as `0x${string}` });
+      if (tx.to && tx.value > 0n) {
+        transfers.push({
+          chainId: this.chain.id,
+          txHash: receipt.transactionHash.toLowerCase(),
+          logIndex: -1,
+          blockNumber: receipt.blockNumber,
+          blockHash: receipt.blockHash.toLowerCase(),
+          blockTime: time,
+          token: NATIVE,
+          from: tx.from.toLowerCase(),
+          to: tx.to.toLowerCase(),
+          value: tx.value,
+        });
+      }
+    }
+
     return {
       status: 'success',
-      transfers: logs.map((log) => ({
+      transfers: transfers.concat(logs.map((log) => ({
         chainId: this.chain.id,
         txHash: receipt.transactionHash.toLowerCase(),
         logIndex: log.logIndex,
@@ -64,12 +86,42 @@ export class EvmChainClient implements ChainClient {
         from: log.args.from.toLowerCase(),
         to: log.args.to.toLowerCase(),
         value: log.args.value,
-      })),
+      }))),
     };
+  }
+
+  private async findNativeTransfers(query: TransferQuery): Promise<TokenTransfer[]> {
+    const recipients = new Set(query.recipients);
+    const transfers: TokenTransfer[] = [];
+    for (const block of await readBlocks(this.client, query.fromBlock, query.toBlock)) {
+      const time = toDate(block.timestamp);
+      this.blockTimes.set(block.number, { number: block.number, time });
+      for (const tx of block.transactions) {
+        const to = tx.to?.toLowerCase();
+        if (!to || !recipients.has(to) || tx.value === 0n) continue;
+        // Only successful transactions count; the receipt tells us.
+        const receipt = await this.client.getTransactionReceipt({ hash: tx.hash });
+        if (receipt.status !== 'success') continue;
+        transfers.push({
+          chainId: this.chain.id,
+          txHash: tx.hash.toLowerCase(),
+          logIndex: -1,
+          blockNumber: block.number,
+          blockHash: block.hash.toLowerCase(),
+          blockTime: time,
+          token: NATIVE,
+          from: tx.from.toLowerCase(),
+          to,
+          value: tx.value,
+        });
+      }
+    }
+    return transfers;
   }
 
   async findTransfers(query: TransferQuery): Promise<TokenTransfer[]> {
     if (query.recipients.length === 0) return [];
+    if (query.token === NATIVE) return this.findNativeTransfers(query);
     const logs = await this.client.getLogs({
       address: query.token as `0x${string}`,
       event: transferEvent,
@@ -99,6 +151,18 @@ export class EvmChainClient implements ChainClient {
     }
     return transfers;
   }
+}
+
+/** ETH transfers leave no logs, so blocks are read with their transactions, a few at a time. */
+async function readBlocks(client: PublicClient, from: bigint, to: bigint) {
+  const numbers: bigint[] = [];
+  for (let n = from; n <= to; n++) numbers.push(n);
+  const blocks = [];
+  for (let i = 0; i < numbers.length; i += 6) {
+    const chunk = numbers.slice(i, i + 6);
+    blocks.push(...(await Promise.all(chunk.map((blockNumber) => client.getBlock({ blockNumber, includeTransactions: true })))));
+  }
+  return blocks;
 }
 
 /** One client per enabled chain, created lazily. */

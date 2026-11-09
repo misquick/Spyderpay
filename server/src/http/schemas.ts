@@ -28,12 +28,13 @@ export const createInvoiceSchema = z.object({
   amount: z
     .union([z.string(), z.number()])
     .transform((v) => String(v).trim())
-    .pipe(z.string().regex(AMOUNT_PATTERN, 'Use a positive amount with at most 2 decimals')),
+    .pipe(z.string().regex(AMOUNT_PATTERN, 'Use a positive amount')),
   chainId: z.coerce.number().int().optional(),
   description: optionalText(200),
   orderId: optionalText(100),
   redirectUrl: optionalUrl,
   expiresInMinutes: z.coerce.number().int().min(5).max(1440).optional(),
+  payTo: z.preprocess(blankTo(undefined), evmAddress.optional()),
 });
 
 export const submitPaymentSchema = z.object({

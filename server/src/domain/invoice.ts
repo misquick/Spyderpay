@@ -40,8 +40,11 @@ export interface PaymentRef {
   payer: string;
 }
 
+/** `token.address` of invoices paid in the chain's own coin (ETH) rather than an ERC-20 token. */
+export const NATIVE = 'native';
+
 export interface InvoiceToken {
-  /** Lower-case contract address. */
+  /** Lower-case contract address, or NATIVE for the chain's own coin. */
   address: string;
   symbol: string;
   decimals: number;

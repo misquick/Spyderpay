@@ -6,6 +6,7 @@ import { EvmChainClients } from './infrastructure/blockchain/EvmChainClient.js';
 import { createPgRepositories, PgUnitOfWork } from './infrastructure/db/PgUnitOfWork.js';
 import { HttpWebhookSender } from './infrastructure/webhooks/HttpWebhookSender.js';
 import { systemClock, type Logger } from './ports/system.js';
+import { NATIVE } from './domain/invoice.js';
 import { ConfirmationTracker } from './services/ConfirmationTracker.js';
 import { InvoiceService } from './services/InvoiceService.js';
 import { MerchantService } from './services/MerchantService.js';
@@ -38,7 +39,8 @@ export function createContainer(env: Env, logger: Logger) {
   const jobs: Job[] = chains.list().flatMap((chain) => {
     const client = chainClients.forChain(chain.id);
     const scanner = new PaymentScanner(chain, client, repos, uow, payments, publisher, logger, {
-      blockRange: env.SCAN_BLOCK_RANGE,
+      // ETH transfers have no logs: blocks are read one by one, so smaller steps.
+      blockRange: chain.token.address === NATIVE ? Math.min(env.SCAN_BLOCK_RANGE, 30) : env.SCAN_BLOCK_RANGE,
       maxBatches: 20,
     });
     const tracker = new ConfirmationTracker(chain, client, repos, uow, publisher, clock, logger);

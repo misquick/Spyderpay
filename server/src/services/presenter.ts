@@ -1,6 +1,6 @@
 import { getAddress } from 'viem';
 import type { ChainConfig, ChainRegistry } from '../config/chains.js';
-import type { Invoice } from '../domain/invoice.js';
+import { NATIVE, type Invoice } from '../domain/invoice.js';
 import type { Merchant } from '../domain/merchant.js';
 import { fromUnits } from '../domain/money.js';
 
@@ -21,7 +21,8 @@ export class Presenter {
       payAmount: fromUnits(invoice.amountUnits, invoice.token.decimals),
       payAmountUnits: invoice.amountUnits.toString(),
       token: {
-        address: getAddress(invoice.token.address),
+        /** null = the chain's own coin (ETH). */
+        address: invoice.token.address === NATIVE ? null : getAddress(invoice.token.address),
         symbol: invoice.token.symbol,
         decimals: invoice.token.decimals,
       },
@@ -78,7 +79,12 @@ export class Presenter {
       explorerUrl: chain.explorerUrl,
       faucetUrl: chain.faucetUrl,
       confirmations: chain.confirmations,
-      token: { address: getAddress(chain.token.address), symbol: chain.token.symbol, decimals: chain.token.decimals },
+      token: {
+        address: chain.token.address === NATIVE ? null : getAddress(chain.token.address),
+        symbol: chain.token.symbol,
+        decimals: chain.token.decimals,
+        precision: chain.token.precision,
+      },
     };
   }
 }

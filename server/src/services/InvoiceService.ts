@@ -14,6 +14,8 @@ export interface CreateInvoiceInput {
   orderId?: string;
   redirectUrl?: string;
   expiresInMinutes?: number;
+  /** Pay to another address than the merchant's default (e.g. the test page). */
+  payTo?: string;
 }
 
 const MAX_TAIL_ATTEMPTS = 25;
@@ -31,7 +33,8 @@ export class InvoiceService {
 
   async create(merchant: Merchant, input: CreateInvoiceInput): Promise<Invoice> {
     const chain = input.chainId === undefined ? this.chains.default : this.chains.get(input.chainId);
-    const base = toUnits(input.amount, chain.token.decimals);
+    const { precision } = chain.token;
+    const base = toUnits(input.amount, chain.token.decimals, precision);
     const now = this.clock.now();
     const ttl = input.expiresInMinutes ?? this.defaultTtlMinutes;
 
@@ -42,10 +45,10 @@ export class InvoiceService {
           id: randomUUID(),
           merchantId: merchant.id,
           chainId: chain.id,
-          token: chain.token,
-          payTo: merchant.payoutAddress,
-          amount: normalizeAmount(input.amount),
-          amountUnits: withUniqueTail(base, chain.token.decimals, this.pickTail),
+          token: { address: chain.token.address, symbol: chain.token.symbol, decimals: chain.token.decimals },
+          payTo: (input.payTo ?? merchant.payoutAddress).toLowerCase(),
+          amount: normalizeAmount(input.amount, precision),
+          amountUnits: withUniqueTail(base, chain.token.decimals, this.pickTail, precision),
           description: input.description ?? null,
           orderId: input.orderId ?? null,
           redirectUrl: input.redirectUrl ?? null,
