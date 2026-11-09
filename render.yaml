@@ -13,6 +13,8 @@ services:
         sync: false
       - key: REOWN_PROJECT_ID    # from dashboard.reown.com
         sync: false
+      - key: PAY_ASSET           # ETH = the network's own coin, USDC = the stablecoin
+        value: ETH
       - key: CHAINS
         value: "84532,11155111"
       - key: ALLOW_REGISTRATION
